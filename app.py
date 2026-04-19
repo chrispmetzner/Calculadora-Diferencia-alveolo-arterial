@@ -19,7 +19,6 @@ def calcular_analisis_respiratorio(pao2, paco2, spo2, fio2_porcentaje, edad):
     
     # 3. Diferenciación (Gradientes)
     gradiente_actual = pao2_alveolar_actual - pao2
-    # Estimación de PaO2 a 21% usando el índice a/A (estabilidad relativa)
     pao2_estimada_21 = pao2_alveolar_21 * indice_aA
     gradiente_21 = pao2_alveolar_21 - pao2_estimada_21
     
@@ -36,48 +35,53 @@ def calcular_analisis_respiratorio(pao2, paco2, spo2, fio2_porcentaje, edad):
         "pao2_estimada_21": round(pao2_estimada_21, 1)
     }
 
-# --- INTERFAZ DE USUARIO ---
-st.set_page_config(page_title="Monitorización Respiratoria Kine", page_icon="🩺", layout="wide")
+# --- INTERFAZ DE USUARIO (Optimizada para Celular) ---
+st.set_page_config(page_title="Monitor Respiratorio", page_icon="🩺")
 
-st.title("🩺 Monitorización de Intercambio Gaseoso y Oxigenación")
+st.title("🩺 Monitorización de Intercambio Gaseoso")
 st.markdown("---")
 
-# Entradas de datos
-with st.sidebar:
-    st.header("📥 Datos del Paciente")
+# Entradas de datos en la pantalla principal
+st.subheader("📥 Datos del Paciente")
+
+col1, col2 = st.columns(2)
+with col1:
     edad = st.number_input("Edad", min_value=1, max_value=110, value=60)
-    st.subheader("Gases Arteriales / Monitor")
     pao2 = st.number_input("PaO2 (mmHg)", min_value=20.0, value=85.0)
     paco2 = st.number_input("PaCO2 (mmHg)", min_value=10.0, value=40.0)
-    spo2 = st.number_input("SpO2 (%)", min_value=50, max_value=100, value=96)
+with col2:
     fio2_input = st.number_input("FiO2 Actual (%)", min_value=21, max_value=100, value=35)
+    spo2 = st.number_input("SpO2 (%)", min_value=50, max_value=100, value=96)
 
-if st.button("GENERAR DIAGNÓSTICO CLÍNICO", type="primary"):
+st.write("") # Espacio visual
+
+if st.button("GENERAR DIAGNÓSTICO", type="primary", use_container_width=True):
     res = calcular_analisis_respiratorio(pao2, paco2, spo2, fio2_input, edad)
     
+    st.markdown("---")
+    
     # --- FILA 1: ÍNDICES DE EFICIENCIA ---
-    st.subheader("📊 Índices de Eficiencia de Oxigenación")
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("PaFi", res['pafi'])
-    c2.metric("SpFi", res['spfi'])
-    c3.metric("Índice a/A", res['indice_aA'])
-    c4.metric("D(A-a)O₂ Actual", f"{res['gradiente_actual']} mmHg")
+    st.subheader("📊 Índices de Eficiencia")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.metric("PaFi", res['pafi'])
+        st.metric("SpFi", res['spfi'])
+    with c2:
+        st.metric("Índice a/A", res['indice_aA'])
+        st.metric("D(A-a)O₂ Actual", f"{res['gradiente_actual']} mmHg")
 
     st.markdown("---")
 
     # --- FILA 2: PROYECCIÓN Y GRADIENTE ---
-    st.subheader("📉 Proyección a Aire Ambiental (FiO₂ 21%)")
-    col_a, col_b = st.columns(2)
-    with col_a:
-        st.write(f"**PaO₂ Proyectada:** {res['pao2_estimada_21']} mmHg")
-        st.write(f"**D(A-a)O₂ Proyectada:** {res['gradiente_21']} mmHg")
-    with col_b:
-        st.write(f"**D(A-a)O₂ Esperada para la edad:** {res['gradiente_esperada']} mmHg")
+    st.subheader("📉 Proyección a Aire Ambiental (21%)")
+    st.info(f"**PaO₂ Proyectada:** {res['pao2_estimada_21']} mmHg")
+    st.info(f"**D(A-a)O₂ Proyectada:** {res['gradiente_21']} mmHg")
+    st.caption(f"Valor de referencia: D(A-a)O₂ normal para la edad es hasta {res['gradiente_esperada']} mmHg")
 
     st.markdown("---")
 
     # --- SECCIÓN DE INTERPRETACIÓN CLÍNICA ---
-    st.subheader("🧠 Interpretación Clínica")
+    st.subheader("🧠 Análisis Clínico")
     
     # 1. Hipoxemia
     if res['pafi'] >= 300:
@@ -90,18 +94,16 @@ if st.button("GENERAR DIAGNÓSTICO CLÍNICO", type="primary"):
         st.error("🚨 **Hipoxemia Severa:** Criterio de SDRA Severo.")
 
     # 2. Tipo de Insuficiencia Respiratoria (IRA)
-    st.write("**Clasificación de IRA:**")
     if paco2 > 45:
-        st.error("👉 **IRA Tipo II (Hipercapnica):** Existe falla de bomba o hipoventilación alveolar.")
+        st.error("👉 **IRA Tipo II (Hipercápnica):** Falla de bomba o hipoventilación.")
     elif pao2 < 60:
-        st.error("👉 **IRA Tipo I (Hipoxémica):** Existe falla de parénquima/intercambio.")
+        st.error("👉 **IRA Tipo I (Hipoxémica):** Falla de parénquima/intercambio.")
     else:
         st.info("👉 Sin criterios de IRA inminente en gasometría actual.")
 
     # 3. Mecanismo de la Gradiente
-    if res['gradiente_actual'] > (res['gradiente_esperada'] + 5): # Tolerancia de 5mmHg
-        st.warning("🔍 **Mecanismo:** Gradiente elevada. Sugiere alteración V/Q, Shunt o alteración de la difusión.")
+    if res['gradiente_actual'] > (res['gradiente_esperada'] + 5):
+        st.warning("🔍 **Mecanismo:** Gradiente elevada. Sugiere alteración V/Q, Shunt o defecto de difusión.")
     else:
-        st.success("🔍 **Mecanismo:** Gradiente normal. Si hay hipoxemia, considere causas extrapulmonares (SNC, debilidad muscular).")
+        st.success("🔍 **Mecanismo:** Gradiente normal. Causas probablemente extrapulmonares.")
 
-st.caption("Nota: Esta herramienta es un apoyo clínico. Las decisiones deben basarse en la evaluación integral del paciente en la UPC.")
